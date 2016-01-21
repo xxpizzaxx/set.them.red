@@ -1,0 +1,7 @@
+{
+  "login_url": "https://sisilogin.testeveonline.com/",
+  "crest_url": "https://api-sisi.testeveonline.com/",
+  "clientID": "f",
+  "secretKey": "4",
+  "redirectUrl": "http://localhost:4567/callback"
+}

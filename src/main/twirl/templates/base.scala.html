@@ -1,0 +1,43 @@
+@(title: String, content: String)
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
+<head>
+    <link rel="shortcut icon" href="/static/favicon.png">
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap.min.css" />
+    <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.css" rel="stylesheet">
+    <link href='//fonts.googleapis.com/css?family=Allura' rel='stylesheet' type='text/css'>
+    <script src="/static/js/jquery.js"></script>
+    <script src="/static/js/bootstrap.js"></script>
+
+    <title>@title</title>
+</head>
+<body>
+<nav class="navbar navbar-default">
+    <div class="container">
+        <div class="navbar-header">
+            <button class="navbar-toggle" data-target=".navbar-collapse" data-toggle="collapse" type="button" data-target=".navbar-ex1-collapse">
+					<span class="sr-only">
+						Toggle navigation
+					</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/"><i class="icon-wrench"></i>pizza-dscan
+            </a></div>
+        <nav class="collapse navbar-collapse navbar-ex1-collapse" role="navigtion">
+            <ul class="nav navbar-nav">
+            </ul>
+
+        </nav>
+    </div>
+    </div>
+</nav>
+<div class="container">
+    @Html(content)
+</div>
+</body>
+
+</html>
