@@ -46,7 +46,6 @@ object Webapp extends App {
     val securetoken = Random.alphanumeric.take(32).mkString
     req.session.attribute("logintoken", securetoken)
     resp.redirect(crest.redirect(securetoken, defaultCrestScopes))
-    ""
   })
   // callback for when CCP auth sends them back
   get("/callback", (req: Request, resp: Response) => {
