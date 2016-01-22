@@ -18,3 +18,4 @@ project/plugins/project/
 
 # IntelliJ
 .idea
+src/main/resources/config.json
