@@ -39,8 +39,24 @@
             <div class="panel-body">
                 <form id="corpform" action="/add/evewho" method="post">
                     <div class="form-group">
-                        <label for="corp">Corporation</label>
+                        <label for="corp">Group</label>
                         <input type="text" class="form-control" id="corp" name="corp" placeholder="Corporation or Alliance to add">
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-xs-6 col-md-4">
+         <div class="panel panel-default">
+            <div class="panel-heading">
+                Add supercarriers and titans for a corporation/alliance (via zkillboard)
+            </div>
+            <div class="panel-body">
+                <form id="zkbform" action="/add/zkbsupers" method="post">
+                    <div class="form-group">
+                        <label for="corp">Group</label>
+                        <input type="text" class="form-control" id="group" name="group" placeholder="Corporation or Alliance to add supers for">
                         <button type="submit" class="btn btn-primary">Submit</button>
                     </div>
                 </form>

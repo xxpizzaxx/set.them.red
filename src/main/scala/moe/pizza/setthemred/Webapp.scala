@@ -3,12 +3,12 @@ package moe.pizza.setthemred
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import moe.pizza.crestapi.CrestApi
-import moe.pizza.eveapi.generated.eve.{CharacterID, CharacterAffiliation}
+import moe.pizza.eveapi.generated.eve.CharacterID
 import moe.pizza.evewho.Evewho
 import moe.pizza.setthemred.Types.Alert
 import moe.pizza.sparkhelpers.SparkWebScalaHelpers._
 import moe.pizza.eveapi.{EVEAPI, SyncableFuture}
-import play.twirl.api.Html
+import moe.pizza.zkapi.ZKBAPI
 import spark.Spark._
 import spark._
 import Utils._
@@ -28,6 +28,7 @@ object Webapp extends App {
   val crest = new CrestApi(baseurl = config.login_url, cresturl = config.crest_url, config.clientID, config.secretKey, config.redirectUrl)
   val eveapi = new EVEAPI()
   val evewho = new Evewho()
+  val zkb = new ZKBAPI()
   val defaultCrestScopes = List("characterContactsRead", "characterContactsWrite")
   val SESSION = "session"
 
@@ -44,7 +45,7 @@ object Webapp extends App {
   after("/", (req: Request, resp: Response) => {
     val session = req.getSession
     session match {
-      case Some(s) => req.clearAlerts
+      case Some(s) => req.clearAlerts()
       case _ => ()
     }
   })
@@ -78,33 +79,53 @@ object Webapp extends App {
   post("/add/characters", (req: Request, resp: Response) => {
     req.getSession match {
       case Some(s) =>
-        req.queryParams("names")
+         val pilots = req.queryParams("names")
           .split('\n')
           .map(_.trim)
           .grouped(250)
           .map(s => eveapi.eve.CharacterID(s))
           .foldRight(Seq.empty[CharacterID.Row]){ (n, a) =>
             n.sync().get.result ++ a
-          }.map { row =>
-            val car = crest.contacts.createCharacterAddRequest(-10, row.characterID.toLong, row.name, true)
-            Try { crest.contacts.createContact(s.characterID, s.accessToken, car) }
-          }.map(s => s.map(_.sync()))
-          .groupBy(_.isSuccess)
-          .mapValues(_.size)
-          .foreach { kv =>
-            val (status, count) = kv
-            status match {
-              case true  => req.flash(Alerts.success, "Successfully added %d contacts to your watchlist.".format(count))
-              case false => req.flash(Alerts.danger, "Failed to add %d contacts to your watchlist.".format(count))
-            }
           }
+          .map(c => Pilot(c.characterID.toLong, c.name)).toList
+        massAdd(s, "your list", pilots, req)
         resp.redirect("/")
       case None =>
         resp.redirect("/")
     }
     ()
   })
-    post("/add/evewho", (req: Request, resp: Response) => {
+  case class Pilot(characterID: Long, characterName: String)
+
+  def massAdd(s: Types.Session, name: String, pilots: List[Pilot], req: Request) = {
+      pilots.map(c =>
+        (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, c.characterID, c.characterName, true))})
+      )
+        .map(s => (s._1,  s._2.map(_.sync(15 seconds))))
+        .groupBy(_._2.isSuccess)
+        .flatMap { kv =>
+          val (state, attempts) = kv
+          state match {
+            case true => attempts
+            case false =>
+              attempts.map { t =>
+              log.error ("failed with error %s".format (t._2.failed.get) )
+              (t._1, Try {
+                crest.contacts.createContact (s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest (- 10, t._1.characterID, t._1.characterName, true) )
+              })
+          }.map(s => (s._1, s._2.map(_.sync(15 seconds))))
+          }
+       }.groupBy{_._2.isSuccess}
+        .mapValues(_.size)
+        .foreach { kv =>
+          val (inputstatus, count) = kv
+          inputstatus match {
+            case true  => req.flash(Alerts.success, "Successfully added %d contacts from %s to your watchlist.".format(count, name))
+            case false => req.flash(Alerts.danger, "Failed to add %d contacts from %s to your watchlist.".format(count, name))
+          }
+        }
+  }
+  post("/add/evewho", (req: Request, resp: Response) => {
     req.getSession match {
       case Some(s) =>
         val name = req.queryParams("corp")
@@ -114,32 +135,24 @@ object Webapp extends App {
           case 2 => evewho.corporationList(id).sync().characters
           case 32 => evewho.allianceList(id).sync().characters
         }
-        evewholist.map(c =>
-          (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, c.character_id, c.name, true))})
-        )
-          .map(s => (s._1,  s._2.map(_.sync(15 seconds))))
-          .groupBy(_._2.isSuccess)
-          .flatMap { kv =>
-            val (state, attempts) = kv
-            state match {
-              case true => attempts
-              case false =>
-                attempts.map { t =>
-                log.error ("failed with error %s".format (t._2.failed.get) )
-                (t._1, Try {
-                  crest.contacts.createContact (s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest (- 10, t._1.character_id, t._1.name, true) )
-                })
-            }.map(s => (s._1, s._2.map(_.sync(15 seconds))))
-            }
-         }.groupBy{_._2.isSuccess}
-          .mapValues(_.size)
-          .foreach { kv =>
-            val (inputstatus, count) = kv
-            inputstatus match {
-              case true  => req.flash(Alerts.success, "Successfully added %d contacts from corporation %s to your watchlist.".format(count, name))
-              case false => req.flash(Alerts.danger, "Failed to add %d contacts from corporation %s to your watchlist.".format(count, name))
-            }
-          }
+        massAdd(s, name, evewholist.map(c => Pilot(c.character_id, c.name)), req)
+        resp.redirect("/")
+      case None =>
+        resp.redirect("/")
+    }
+    ()
+  })
+  post("/add/zkbsupers", (req: Request, resp: Response) => {
+    req.getSession match {
+      case Some(s) =>
+        val name = req.queryParams("group")
+        val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
+        val typeOfThing = eveapi.eve.OwnerID(Seq(name)).sync().get.result.head.ownerGroupID.toInt
+        val zkblist = typeOfThing match {
+          case 2 => zkb.stats.corporation(id).sync().map(s => s.supers.supercarriers.data ++ s.supers.titans.data).get
+          case 32 => zkb.stats.alliance(id).sync().map(s => s.supers.supercarriers.data ++ s.supers.titans.data).get
+        }
+        massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req)
         resp.redirect("/")
       case None =>
         resp.redirect("/")
