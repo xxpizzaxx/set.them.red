@@ -23,6 +23,7 @@ object Webapp extends App {
   val OM = new ObjectMapper()
   OM.registerModule(DefaultScalaModule)
   val config = OM.readValue(configtext, classOf[Config])
+  val log = org.log4s.getLogger
 
   val crest = new CrestApi(baseurl = config.login_url, cresturl = config.crest_url, config.clientID, config.secretKey, config.redirectUrl)
   val eveapi = new EVEAPI()
@@ -30,6 +31,7 @@ object Webapp extends App {
   val defaultCrestScopes = List("characterContactsRead", "characterContactsWrite")
   val SESSION = "session"
 
+  port(9020)
   staticFileLocation("/static")
 
   // index page
@@ -113,11 +115,12 @@ object Webapp extends App {
             state match {
               case true => attempts
               case false =>
-                attempts.map( t =>
-                  (t._1, Try {
-                    crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, t._1.character_id, t._1.name, true))
-                  })
-                ).map(s => (s._1, s._2.map(_.sync(15 seconds))))
+                attempts.map { t =>
+                log.error ("failed with error %s".format (t._2.failed.get) )
+                (t._1, Try {
+                  crest.contacts.createContact (s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest (- 10, t._1.character_id, t._1.name, true) )
+                })
+            }.map(s => (s._1, s._2.map(_.sync(15 seconds))))
             }
          }.groupBy{_._2.isSuccess}
           .mapValues(_.size)
