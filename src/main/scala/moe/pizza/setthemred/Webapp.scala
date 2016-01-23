@@ -59,45 +59,13 @@ object Webapp extends App {
     req.session.invalidate()
     resp.redirect("/")
   })
-  // post endpoints for doing basic things
-  post("/add/character", (req: Request, resp: Response) => {
-    req.getSession match {
-      case Some(s) =>
-        val name = req.queryParams("name")
-        val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
-        val result = Try { crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, id, name, true)).sync() }
-        result match {
-          case Success(r) => req.flash(Alerts.success, "Added %s to your watchlist".format(name))
-          case Failure(t) => req.flash(Alerts.danger, "Unable to add %s to your watchlist".format(name))
-        }
-        resp.redirect("/")
-      case None =>
-        resp.redirect("/")
-    }
-    ()
-  })
-  post("/add/characters", (req: Request, resp: Response) => {
-    req.getSession match {
-      case Some(s) =>
-         val pilots = req.queryParams("names")
-          .split('\n')
-          .map(_.trim)
-          .grouped(250)
-          .map(s => eveapi.eve.CharacterID(s))
-          .foldRight(Seq.empty[CharacterID.Row]){ (n, a) =>
-            n.sync().get.result ++ a
-          }
-          .map(c => Pilot(c.characterID.toLong, c.name)).toList
-        massAdd(s, "your list", pilots, req)
-        resp.redirect("/")
-      case None =>
-        resp.redirect("/")
-    }
-    ()
-  })
+
   case class Pilot(characterID: Long, characterName: String)
 
   def massAdd(s: Types.Session, name: String, pilots: List[Pilot], req: Request) = {
+    if (pilots.isEmpty) {
+      req.flash(Alerts.info, "No pilots were found when running your query.")
+    }
       pilots.map(c =>
         (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, c.characterID, c.characterName, true))})
       )
@@ -125,6 +93,26 @@ object Webapp extends App {
           }
         }
   }
+  // batch add
+  post("/add/characters", (req: Request, resp: Response) => {
+    req.getSession match {
+      case Some(s) =>
+         val pilots = req.queryParams("names")
+          .split('\n')
+          .map(_.trim)
+          .grouped(250)
+          .map(s => eveapi.eve.CharacterID(s))
+          .foldRight(Seq.empty[CharacterID.Row]){ (n, a) =>
+            n.sync().get.result ++ a
+          }
+          .map(c => Pilot(c.characterID.toLong, c.name)).toList
+        massAdd(s, "your list", pilots, req)
+        resp.redirect("/")
+      case None =>
+        resp.redirect("/")
+    }
+    ()
+  })
   post("/add/evewho", (req: Request, resp: Response) => {
     req.getSession match {
       case Some(s) =>
@@ -149,8 +137,8 @@ object Webapp extends App {
         val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
         val typeOfThing = eveapi.eve.OwnerID(Seq(name)).sync().get.result.head.ownerGroupID.toInt
         val zkblist = typeOfThing match {
-          case 2 => zkb.stats.corporation(id).sync().map(s => s.supers.supercarriers.data ++ s.supers.titans.data).get
-          case 32 => zkb.stats.alliance(id).sync().map(s => s.supers.supercarriers.data ++ s.supers.titans.data).get
+          case 2 => zkb.stats.corporation(id).sync().get.getSupers
+          case 32 => zkb.stats.alliance(id).sync().get.getSupers
         }
         massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req)
         resp.redirect("/")
