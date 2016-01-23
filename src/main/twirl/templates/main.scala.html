@@ -7,6 +7,8 @@
             <div class="panel-body">
                 <form id="charactersform" action="/add/characters" method="post">
                     <div class="form-group">
+                        <label for="standing1">Standing</label>
+                        <input type="text" class="form-control" id="standing1" name="standing" value="-10">
                         <label for="names">Names</label>
                         <textarea class="form-control" id="names" name="names" placeholder="People to add, one per line" rows="3"></textarea>
                         <button type="submit" class="btn btn-primary" form="charactersform">Submit</button>
@@ -23,6 +25,8 @@
             <div class="panel-body">
                 <form id="corpform" action="/add/evewho" method="post">
                     <div class="form-group">
+                        <label for="standing2">Standing</label>
+                        <input type="text" class="form-control" id="standing2" name="standing" value="-10">
                         <label for="corp">Group</label>
                         <input type="text" class="form-control" id="corp" name="corp" placeholder="Corporation or Alliance to add">
                         <button type="submit" class="btn btn-primary">Submit</button>
@@ -39,6 +43,8 @@
             <div class="panel-body">
                 <form id="zkbform" action="/add/zkbsupers" method="post">
                     <div class="form-group">
+                        <label for="standing3">Standing</label>
+                        <input type="text" class="form-control" id="standing3" name="standing" value="-10">
                         <label for="corp">Group</label>
                         <input type="text" class="form-control" id="group" name="group" placeholder="Corporation or Alliance to add supers for">
                         <button type="submit" class="btn btn-primary">Submit</button>
