@@ -99,13 +99,17 @@ object Webapp extends App {
     }
     ()
   })
-    post("/add/corporation", (req: Request, resp: Response) => {
+    post("/add/evewho", (req: Request, resp: Response) => {
     req.getSession match {
       case Some(s) =>
-        val corpname = req.queryParams("corp")
-        val corpid = eveapi.eve.CharacterID(Seq(corpname)).sync().get.result.head.characterID.toLong
-        val evewholist = evewho.corporationList(corpid).sync()
-        evewholist.characters.map(c =>
+        val name = req.queryParams("corp")
+        val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
+        val typeOfThing = eveapi.eve.OwnerID(Seq(name)).sync().get.result.head.ownerGroupID.toInt
+        val evewholist = typeOfThing match {
+          case 2 => evewho.corporationList(id).sync().characters
+          case 32 => evewho.allianceList(id).sync().characters
+        }
+        evewholist.map(c =>
           (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, c.character_id, c.name, true))})
         )
           .map(s => (s._1,  s._2.map(_.sync(15 seconds))))
@@ -127,8 +131,8 @@ object Webapp extends App {
           .foreach { kv =>
             val (inputstatus, count) = kv
             inputstatus match {
-              case true  => req.flash(Alerts.success, "Successfully added %d contacts from corporation %s to your watchlist.".format(count, corpname))
-              case false => req.flash(Alerts.danger, "Failed to add %d contacts from corporation %s to your watchlist.".format(count, corpname))
+              case true  => req.flash(Alerts.success, "Successfully added %d contacts from corporation %s to your watchlist.".format(count, name))
+              case false => req.flash(Alerts.danger, "Failed to add %d contacts from corporation %s to your watchlist.".format(count, name))
             }
           }
         resp.redirect("/")
