@@ -53,6 +53,11 @@ object Webapp extends App {
     req.session(true)
     resp.redirect(crest.redirect("", defaultCrestScopes))
   })
+  // logout
+  get("/logout", (req: Request, resp: Response) => {
+    req.session.invalidate()
+    resp.redirect("/")
+  })
   // post endpoints for doing basic things
   post("/add/character", (req: Request, resp: Response) => {
     req.getSession match {
