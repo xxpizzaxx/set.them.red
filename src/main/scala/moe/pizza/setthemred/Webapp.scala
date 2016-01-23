@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import moe.pizza.crestapi.CrestApi
 import moe.pizza.eveapi.generated.eve.{CharacterID, CharacterAffiliation}
+import moe.pizza.evewho.Evewho
 import moe.pizza.setthemred.Types.Alert
 import moe.pizza.sparkhelpers.SparkWebScalaHelpers._
 import moe.pizza.eveapi.{EVEAPI, SyncableFuture}
@@ -11,6 +12,7 @@ import play.twirl.api.Html
 import spark.Spark._
 import spark._
 import Utils._
+import scala.concurrent.duration._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
@@ -24,6 +26,7 @@ object Webapp extends App {
 
   val crest = new CrestApi(baseurl = config.login_url, cresturl = config.crest_url, config.clientID, config.secretKey, config.redirectUrl)
   val eveapi = new EVEAPI()
+  val evewho = new Evewho()
   val defaultCrestScopes = List("characterContactsRead", "characterContactsWrite")
   val SESSION = "session"
 
@@ -86,6 +89,43 @@ object Webapp extends App {
             status match {
               case true  => req.flash(Alerts.success, "Successfully added %d contacts to your watchlist.".format(count))
               case false => req.flash(Alerts.danger, "Failed to add %d contacts to your watchlist.".format(count))
+            }
+          }
+        resp.redirect("/")
+      case None =>
+        resp.redirect("/")
+    }
+    ()
+  })
+    post("/add/corporation", (req: Request, resp: Response) => {
+    req.getSession match {
+      case Some(s) =>
+        val corpname = req.queryParams("corp")
+        val corpid = eveapi.eve.CharacterID(Seq(corpname)).sync().get.result.head.characterID.toLong
+        val evewholist = evewho.corporationList(corpid).sync()
+        evewholist.characters.map(c =>
+          (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, c.character_id, c.name, true))})
+        )
+          .map(s => (s._1,  s._2.map(_.sync(15 seconds))))
+          .groupBy(_._2.isSuccess)
+          .flatMap { kv =>
+            val (state, attempts) = kv
+            state match {
+              case true => attempts
+              case false =>
+                attempts.map( t =>
+                  (t._1, Try {
+                    crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(-10, t._1.character_id, t._1.name, true))
+                  })
+                ).map(s => (s._1, s._2.map(_.sync(15 seconds))))
+            }
+         }.groupBy{_._2.isSuccess}
+          .mapValues(_.size)
+          .foreach { kv =>
+            val (inputstatus, count) = kv
+            inputstatus match {
+              case true  => req.flash(Alerts.success, "Successfully added %d contacts from corporation %s to your watchlist.".format(count, corpname))
+              case false => req.flash(Alerts.danger, "Failed to add %d contacts from corporation %s to your watchlist.".format(count, corpname))
             }
           }
         resp.redirect("/")
