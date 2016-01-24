@@ -156,7 +156,7 @@ object Webapp extends App {
           }
           massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing)
         } catch {
-          case NullPointerException => req.flash(Alerts.warning, "Unable to find any supers for %s".format(name))
+          case e: NullPointerException => req.flash(Alerts.warning, "Unable to find any supers for %s".format(name))
         }
         resp.redirect("/")
       case None =>
