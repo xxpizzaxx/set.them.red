@@ -93,6 +93,16 @@ object Webapp extends App {
           }
         }
   }
+  // refresh our access token
+  before("/add/*", (req: Request, resp: Response) => {
+    req.getSession match {
+      case Some(s) =>
+        val refresh = crest.refresh(s.refreshToken).sync()
+        val newsession = s.copy(accessToken = refresh.access_token)
+        req.setSession(newsession)
+      case None => ()
+    }
+  })
   // batch add
   post("/add/characters", (req: Request, resp: Response) => {
     val standing = req.queryParams("standing").toInt
