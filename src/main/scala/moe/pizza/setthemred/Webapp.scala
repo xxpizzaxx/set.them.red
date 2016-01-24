@@ -147,13 +147,17 @@ object Webapp extends App {
     req.getSession match {
       case Some(s) =>
         val name = req.queryParams("group")
-        val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
-        val typeOfThing = eveapi.eve.OwnerID(Seq(name)).sync().get.result.head.ownerGroupID.toInt
-        val zkblist = typeOfThing match {
-          case 2 => zkb.stats.corporation(id).sync().get.getSupers
-          case 32 => zkb.stats.alliance(id).sync().get.getSupers
+        try {
+          val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
+          val typeOfThing = eveapi.eve.OwnerID(Seq(name)).sync().get.result.head.ownerGroupID.toInt
+          val zkblist = typeOfThing match {
+            case 2 => zkb.stats.corporation(id).sync().get.getSupers
+            case 32 => zkb.stats.alliance(id).sync().get.getSupers
+          }
+          massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing)
+        } catch {
+          case NullPointerException => req.flash(Alerts.warning, "Unable to find any supers for %s".format(name))
         }
-        massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing)
         resp.redirect("/")
       case None =>
         resp.redirect("/")
