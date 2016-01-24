@@ -1,6 +1,6 @@
 package moe.pizza.setthemred
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{JsonMappingException, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import moe.pizza.crestapi.CrestApi
 import moe.pizza.eveapi.generated.eve.CharacterID
@@ -156,7 +156,7 @@ object Webapp extends App {
           }
           massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing)
         } catch {
-          case e: NullPointerException => req.flash(Alerts.warning, "Unable to find any supers for %s".format(name))
+          case e: JsonMappingException => req.flash(Alerts.info, "Unable to find any supercapital intel for %s".format(name))
         }
         resp.redirect("/")
       case None =>
