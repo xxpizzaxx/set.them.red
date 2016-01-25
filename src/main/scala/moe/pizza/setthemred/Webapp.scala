@@ -1,5 +1,7 @@
 package moe.pizza.setthemred
 
+import java.net.URLEncoder
+
 import com.fasterxml.jackson.databind.{JsonMappingException, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import moe.pizza.crestapi.CrestApi
@@ -200,6 +202,17 @@ object Webapp extends App {
         resp.redirect("/")
     }
     ()
+  })
+  get("/autocomplete/:string", (req: Request, resp: Response) => {
+    val string = Option(URLEncoder.encode(req.params(":string"), "utf-8"))
+    string.map { s=>
+      val alliances = zkb.autocomplete(zkb.autocomplete.Filters.allianceID, s).sync()
+      val corps = zkb.autocomplete(zkb.autocomplete.Filters.corporationID, s).sync()
+      alliances ++ corps
+    } match {
+      case Some(s) => OM.writeValueAsString(s)
+      case None => "[]"
+    }
   })
   // callback for when CCP auth sends them back
   get("/callback", (req: Request, resp: Response) => {

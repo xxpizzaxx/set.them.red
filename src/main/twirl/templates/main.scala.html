@@ -69,3 +69,19 @@
         </div>
     </div>
 </div>
+
+
+<script>
+           new autoComplete({
+               selector: 'input[name="group"]',
+               source: function(term, response){
+                   $.getJSON('/autocomplete/'+term, function(data){ response($.map(data, function(x) { return x.name} )); });
+               }
+           });
+           new autoComplete({
+               selector: 'input[name="corp"]',
+               source: function(term, response){
+                   $.getJSON('/autocomplete/'+term, function(data){ response($.map(data, function(x) { return x.name} )); });
+               }
+           });
+</script>
