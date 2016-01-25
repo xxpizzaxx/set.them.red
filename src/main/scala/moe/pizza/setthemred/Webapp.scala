@@ -63,9 +63,9 @@ object Webapp extends App {
 
   case class Pilot(characterID: Long, characterName: String)
 
-  def massAdd(s: Types.Session, name: String, pilots: List[Pilot], req: Request, standing: Int) = {
+  def massAdd(s: Types.Session, name: String, pilots: List[Pilot], req: Request, standing: Int, watchlist: Boolean) = {
       pilots.map(c =>
-        (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(standing, c.characterID, c.characterName, true))})
+        (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(standing, c.characterID, c.characterName, watchlist))})
       )
         .map(s => (s._1,  s._2.map(_.sync(15 seconds))))
         .groupBy(_._2.isSuccess)
@@ -77,7 +77,7 @@ object Webapp extends App {
               attempts.map { t =>
               log.error ("failed with error %s".format (t._2.failed.get) )
               (t._1, Try {
-                crest.contacts.createContact (s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest (- 10, t._1.characterID, t._1.characterName, true) )
+                crest.contacts.createContact (s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest (- 10, t._1.characterID, t._1.characterName, watchlist) )
               })
           }.map(s => (s._1, s._2.map(_.sync(15 seconds))))
           }
@@ -104,6 +104,7 @@ object Webapp extends App {
   // batch add
   post("/add/characters", (req: Request, resp: Response) => {
     val standing = req.queryParams("standing").toInt
+    val watchlist = Option(req.queryParams("watchlist")).isDefined
     req.getSession match {
       case Some(s) =>
          val pilots = req.queryParams("names")
@@ -115,7 +116,7 @@ object Webapp extends App {
             n.sync().get.result ++ a
           }
           .map(c => Pilot(c.characterID.toLong, c.name)).toList
-        massAdd(s, "your list", pilots, req, standing)
+        massAdd(s, "your list", pilots, req, standing, watchlist)
         resp.redirect("/")
       case None =>
         resp.redirect("/")
@@ -124,6 +125,7 @@ object Webapp extends App {
   })
   post("/add/evewho", (req: Request, resp: Response) => {
     val standing = req.queryParams("standing").toInt
+    val watchlist = Option(req.queryParams("watchlist")).isDefined
     req.getSession match {
       case Some(s) =>
         val name = req.queryParams("corp")
@@ -133,7 +135,7 @@ object Webapp extends App {
           case 2 => evewho.corporationList(id).sync().characters
           case 32 => evewho.allianceList(id).sync().characters
         }
-        massAdd(s, name, evewholist.map(c => Pilot(c.character_id, c.name)), req, standing)
+        massAdd(s, name, evewholist.map(c => Pilot(c.character_id, c.name)), req, standing, watchlist)
         resp.redirect("/")
       case None =>
         resp.redirect("/")
@@ -142,6 +144,7 @@ object Webapp extends App {
   })
   post("/add/zkbsupers", (req: Request, resp: Response) => {
     val standing = req.queryParams("standing").toInt
+    val watchlist = Option(req.queryParams("watchlist")).isDefined
     val supers = Option(req.queryParams("supers")).isDefined
     val titans = Option(req.queryParams("titans")).isDefined
     req.getSession match {
@@ -188,7 +191,7 @@ object Webapp extends App {
               pilots
           }
 
-          massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing)
+          massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing, watchlist)
         } catch {
           case e: JsonMappingException => req.flash(Alerts.info, "Unable to find any supercapital intel for %s".format(name))
         }
