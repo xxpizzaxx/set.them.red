@@ -8,6 +8,7 @@ import moe.pizza.evewho.Evewho
 import moe.pizza.setthemred.Types.Alert
 import moe.pizza.sparkhelpers.SparkWebScalaHelpers._
 import moe.pizza.eveapi.{EVEAPI, SyncableFuture}
+import moe.pizza.zkapi.StatsTypes.SuperPilot
 import moe.pizza.zkapi.ZKBAPI
 import spark.Spark._
 import spark._
@@ -63,9 +64,6 @@ object Webapp extends App {
   case class Pilot(characterID: Long, characterName: String)
 
   def massAdd(s: Types.Session, name: String, pilots: List[Pilot], req: Request, standing: Int) = {
-    if (pilots.isEmpty) {
-      req.flash(Alerts.info, "No pilots were found when running your query.")
-    }
       pilots.map(c =>
         (c ,Try {crest.contacts.createContact(s.characterID, s.accessToken, crest.contacts.createCharacterAddRequest(standing, c.characterID, c.characterName, true))})
       )
@@ -144,16 +142,52 @@ object Webapp extends App {
   })
   post("/add/zkbsupers", (req: Request, resp: Response) => {
     val standing = req.queryParams("standing").toInt
+    val supers = Option(req.queryParams("supers")).isDefined
+    val titans = Option(req.queryParams("titans")).isDefined
     req.getSession match {
       case Some(s) =>
         val name = req.queryParams("group")
+        if (name=="") {
+          req.flash(Alerts.danger, "Please enter a name.")
+          resp.redirect("/")
+          halt()
+        }
         try {
           val id = eveapi.eve.CharacterID(Seq(name)).sync().get.result.head.characterID.toLong
           val typeOfThing = eveapi.eve.OwnerID(Seq(name)).sync().get.result.head.ownerGroupID.toInt
           val zkblist = typeOfThing match {
-            case 2 => zkb.stats.corporation(id).sync().get.getSupers
-            case 32 => zkb.stats.alliance(id).sync().get.getSupers
+            case 0 =>
+              req.flash(Alerts.info, "Can't find an entity called %s".format(name))
+              List.empty[SuperPilot]
+            case 1=>
+              req.flash(Alerts.info, "I only found a player called %s, not a corporation or alliance".format(name))
+              List.empty[SuperPilot]
+            case 2 =>
+              val stats = zkb.stats.corporation(id).sync().get
+              val pilots = (supers, titans) match {
+                case (true, true)   => stats.getSupers ++ stats.getTitans
+                case (true, false)  => stats.getSupers
+                case (false, true)  => stats.getTitans
+                case (false, false) => List.empty[SuperPilot]
+              }
+              if (pilots.isEmpty) {
+                req.flash(Alerts.info, "No pilots were found matching your query")
+              }
+              pilots
+            case 32 =>
+               val stats = zkb.stats.alliance(id).sync().get
+              val pilots = (supers, titans) match {
+                case (true, true)   => stats.getSupers ++ stats.getTitans
+                case (true, false)  => stats.getSupers
+                case (false, true)  => stats.getTitans
+                case (false, false) => List.empty[SuperPilot]
+              }
+              if (pilots.isEmpty) {
+                req.flash(Alerts.info, "No pilots were found matching your query")
+              }
+              pilots
           }
+
           massAdd(s, name, zkblist.map(c => Pilot(c.characterID, c.characterName)), req, standing)
         } catch {
           case e: JsonMappingException => req.flash(Alerts.info, "Unable to find any supercapital intel for %s".format(name))
