@@ -30,7 +30,7 @@ object Webapp extends App {
 
   val crest = new CrestApi(baseurl = config.login_url, cresturl = config.crest_url, config.clientID, config.secretKey, config.redirectUrl)
   val eveapi = new EVEAPI()
-  val evewho = new Evewho()
+  val evewho = new Evewho(baseurl = "https://evewho.com/api.php")
   val zkb = new ZKBAPI()
   val defaultCrestScopes = List("characterContactsRead", "characterContactsWrite")
   val SESSION = "session"
